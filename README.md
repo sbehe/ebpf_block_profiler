@@ -44,6 +44,7 @@ The profiler is intended for optimizing storage performance and understanding I/
   - Kernel messages can be viewed live via `sudo cat /sys/kernel/debug/tracing/trace_pipe`.
 
 ## Project Structure
+
 ```bash
 ebpf_block_profiler/
 ├── src/
@@ -54,8 +55,9 @@ ebpf_block_profiler/
 │   └── fio_test.sh           # Script to generate sample disk workload
 ├── Makefile                  # Builds everything automatically
 └── README.md                 # Project documentation
+```
 
-##Building and Running
+## Building and Running
 
 **Prerequisites**
 	•	Linux Kernel ≥ 5.8 (Tested on 6.8.0)
@@ -64,8 +66,11 @@ ebpf_block_profiler/
 	•	libbpf-dev, libelf-dev
 	•	gcc, make
 
-##Build
+## Build
+
+```bash
   make
+```
 
 This automatically:
 	•	Generates vmlinux.h
@@ -74,13 +79,22 @@ This automatically:
 	•	Builds userspace binary
 
 **Run**
+
+```bash
   make run
+```
 
 **In a separate terminal, monitor kernel debug messages:**
+
+```bash
   sudo cat /sys/kernel/debug/tracing/trace_pipe
+```
 
 **Generate Workload**
+
+```bash
   ./scripts/fio_test.sh
+```
 
 This will create random disk I/O to simulate activity.
 
@@ -88,26 +102,30 @@ This will create random disk I/O to simulate activity.
 
 In one terminal (profiler output):
 
+```bash
 PID: 12345  COMM: fio              Latency(us): 205   Size(bytes): 4096
 PID: 12346  COMM: postgres          Latency(us): 312   Size(bytes): 8192
 ...
+```
 
 In another terminal (trace_pipe output):
 
+```bash
 submit event
 complete event
 submit event
 complete event
 ...
+```
 
-##Current Limitations
+## Current Limitations
 
 	•	Only basic latency and size tracking per I/O.
 	•	No histograms or per-process aggregation yet.
 	•	No filtering by device or PID.
 	•	No CSV export or plotting yet.
 
-##Future Improvements (Planned)
+## Future Improvements (Planned)
 
 	•	Build latency histograms (log-scale buckets).
 	•	Aggregate average/min/max latency per process.
@@ -115,7 +133,7 @@ complete event
 	•	Build a lightweight CLI dashboard or web dashboard.
 	•	Support filtering by disk device or PID.
 
-##Summary
+## Summary
 
 This savepoint marks a working, basic real-time Block I/O Profiler built with eBPF, with kernel hooks at block_bio_queue and bio_endio() (kprobe), and live userspace event display.
 	•	Kernel hooks operational ✅
