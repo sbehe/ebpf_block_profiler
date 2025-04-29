@@ -47,6 +47,15 @@ The profiler is intended for optimizing storage performance and understanding I/
   - Histogram is displayed live, refreshing every 5 second for real-time visibility.
   - Upon program exit, the histogram is exported to a CSV file (`histogram.csv`) for offline analysis.
 
+- **Per-Process Aggregation**:
+  - The profiler tracks I/O count and cumulative latency per PID.
+  - The process name (COMM) is captured at first I/O event for each process.
+  - At program exit, a per-process summary is printed showing:
+    - PID
+    - Process Name
+    - Number of I/Os
+    - Average I/O Latency (in microseconds)
+
 - **Debugging**:  
   - `bpf_printk()` is used internally for kernel-side debugging.
   - Kernel messages can be viewed live via `sudo cat /sys/kernel/debug/tracing/trace_pipe`.
@@ -127,8 +136,7 @@ complete event
 ```
 
 ## Current Limitations
-	•	No per-process data aggregation.
-	•	No filtering by device or PID.
+	•	No filtering by device.
 
 ## What is actually working
 	•	attachment of BPF Type Format (BTF) Tracepoints for I/O submission
@@ -136,6 +144,7 @@ complete event
 	•	diplaying I/O submission and I/O completion messages on real time in trace_pipe
 	•	a histogram is displayed with data about the bulk of I/O in a particular latency range every 5 seconds and when the user program is stopped
 	•	Histogram data is stored in a CSV export.
+	•	Per-process data aggregation.
 
 ## Future Improvements (Planned)
 
@@ -146,11 +155,15 @@ complete event
 
 ## Summary
 
-This version adds major visualization and data export improvements:
-- Implemented live refreshing of the latency histogram every 5 second.
-- Suppressed per-I/O live printing to keep terminal output clean.
-- Added support for exporting the final histogram to a CSV file (`histogram.csv`).
-- Format is compatible with Excel, Python, Gnuplot, and other analysis tools.
-- Improved user experience by providing a live performance dashboard.
+This savepoint adds per-process I/O aggregation to the profiler:
+- Extended kernel maps to track per-PID I/O count, total latency, and process name (COMM).
+- On each I/O completion, updated per-PID statistics in eBPF maps.
+- Modified userspace program to fetch per-process statistics and display:
+  - PID
+  - Process Name
+  - Total I/O Count
+  - Average Latency
+- Now provides clear insights into which processes are generating I/O and their performance impact.
+- Maintains real-time histogram live refresh and CSV export alongside.
 
-With Savepoint5, the profiler is now a full live-monitoring and data analysis tool.
+With Savepoint6, the profiler achieves complete process-level visibility into storage performance.

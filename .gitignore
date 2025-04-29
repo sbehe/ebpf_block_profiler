@@ -22,3 +22,4 @@ randread*
 .vscode/
 .idea/
 .DS_Store
+output/

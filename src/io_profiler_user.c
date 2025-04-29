@@ -12,6 +12,12 @@
 
 static volatile bool exiting = false;
 
+struct pid_io_stats {
+    __u64 io_count;
+    __u64 total_latency_ns;
+    char comm[16];  // <-- Same as kernel
+};
+
 // Fix struct to match BPF program
 static int handle_event(void *ctx, void *data, size_t data_sz) {
     const struct my_io_event *e = data;
@@ -61,6 +67,27 @@ void write_latency_histogram_csv(int map_fd, const char *filename) {
 
     fclose(f);
     printf("Histogram written to %s\n", filename);
+}
+
+void print_pid_summary(int map_fd) {
+    __u32 key = 0, next_key;
+    struct pid_io_stats stats;
+
+    printf("\nPer-Process I/O Summary:\n");
+    printf("%-8s %-16s %-10s %-16s\n", "PID", "COMM", "I/Os", "Avg Latency (us)");
+
+    while (bpf_map_get_next_key(map_fd, &key, &next_key) == 0) {
+        if (bpf_map_lookup_elem(map_fd, &next_key, &stats) == 0) {
+            if (stats.io_count > 0) {
+                printf("%-8u %-16s %-10llu %-16llu\n",
+                       next_key,
+                       stats.comm,
+                       stats.io_count,
+                       stats.total_latency_ns / stats.io_count / 1000);
+            }
+        }
+        key = next_key;
+    }
 }
 
 int main(int argc, char **argv) {
@@ -118,6 +145,7 @@ int main(int argc, char **argv) {
 
     print_latency_histogram(bpf_map__fd(skel->maps.latency_histogram));
     write_latency_histogram_csv(bpf_map__fd(skel->maps.latency_histogram), "output/histogram.csv");
+    print_pid_summary(bpf_map__fd(skel->maps.pid_stats));
 cleanup:
     ring_buffer__free(rb);
     io_profiler_kern__destroy(skel);

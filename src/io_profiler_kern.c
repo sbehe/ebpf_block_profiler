@@ -37,6 +37,19 @@ struct {
     __uint(max_entries, 1 << 24);
 } events SEC(".maps");
 
+struct pid_io_stats {
+    __u64 io_count;
+    __u64 total_latency_ns;
+    char comm[16]; 
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 1024);
+    __type(key, __u32);               // PID
+    __type(value, struct pid_io_stats);
+} pid_stats SEC(".maps");
+
 // Submission hook
 SEC("kprobe/submit_bio_noacct")
 int trace_io_submit(struct pt_regs *ctx) {
@@ -87,6 +100,25 @@ int trace_io_complete(struct pt_regs *ctx) {
     event->ts = bpf_ktime_get_ns();
     event->bytes = info->size; //BPF_CORE_READ(bio, bi_iter.bi_size);
     event->latency_ns = latency;
+
+    __u32 pid = bpf_get_current_pid_tgid() >> 32;
+
+    struct pid_io_stats *stats = bpf_map_lookup_elem(&pid_stats, &pid);
+    struct pid_io_stats new_stats = {};
+
+    if (stats) {
+        new_stats = *stats;
+    }
+
+    new_stats.io_count += 1;
+    new_stats.total_latency_ns += latency;
+    
+    if (new_stats.io_count == 1) {
+        // First time seeing this PID
+        bpf_get_current_comm(&new_stats.comm, sizeof(new_stats.comm));
+    }
+
+    bpf_map_update_elem(&pid_stats, &pid, &new_stats, BPF_ANY);
 
     __u32 slot = bpf_log2l(latency);
     if (slot < 64) {
