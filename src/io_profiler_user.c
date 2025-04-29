@@ -39,18 +39,18 @@ int main(int argc, char **argv) {
         goto cleanup;
     }
 
-    err = io_profiler_kern__attach(skel);
-    if (err) {
-        fprintf(stderr, "Failed to attach BPF programs\n");
-        goto cleanup;
-    }
-
     rb = ring_buffer__new(bpf_map__fd(skel->maps.events), handle_event, NULL, NULL);
     if (!rb) {
         fprintf(stderr, "Failed to create ring buffer\n");
         goto cleanup;
     }
 
+    err = io_profiler_kern__attach(skel);
+    if (err) {
+        fprintf(stderr, "Failed to attach BPF programs\n");
+        goto cleanup;
+    }
+    
     printf("Started I/O Profiler. Hit Ctrl-C to exit.\n");
 
     while (!exiting) {

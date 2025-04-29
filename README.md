@@ -23,11 +23,13 @@ The profiler is intended for optimizing storage performance and understanding I/
 
 ## How It Works
 - **Submission Tracking**:  
-  The program hooks into the `block_bio_queue` tracepoint to record when an I/O request is queued (BIO submission).
-  
+  The program hooks into the `submit_bio_noacct` kernel function via a kprobe to record when a BIO is submitted.  
+  At this point, the original I/O size is captured and stored in an eBPF hash map along with the submission timestamp.
+
 - **Completion Tracking**:  
-  The program hooks into the `bio_endio()` kernel function using a **kprobe** to reliably capture the completion of the I/O request.  
-  This ensures all completed I/O events are captured — even for high-speed NVMe devices and optimized fast paths.
+  The program hooks into `bio_endio` via a kprobe to capture when a BIO is completed.  
+  Using the previously stored information, it calculates I/O latency and retrieves the original I/O size.
+  Both metrics are passed to userspace via a BPF ring buffer.
 
 - **Data Transfer**:  
   Latency, request size, process ID, and process name are collected in the kernel and passed to userspace through a **BPF ring buffer**.
@@ -119,8 +121,6 @@ complete event
 ```
 
 ## Current Limitations
-
-	•	Nothing displays on the user program (make run).
 	•	No histograms or per-process aggregation yet.
 	•	No filtering by device or PID.
 	•	No CSV export or plotting yet.
@@ -129,6 +129,7 @@ complete event
 	•	attachment of BPF Type Format (BTF) Tracepoints for I/O submission
 	•	attachment of kprobe into bio_endio () for I/O completion
 	•	diplaying I/O submission and I/O completion messages on real time in trace_pipe
+	•	user program run (make run) displays I/O Latency and Size for the I/O requests of all the programs.
 
 ## Future Improvements (Planned)
 
@@ -140,7 +141,14 @@ complete event
 
 ## Summary
 
-This savepoint marks a working, basic real-time Block I/O Profiler built with eBPF, with kernel hooks at block_bio_queue and bio_endio() (kprobe), and live userspace event display.
-	•	Kernel hooks operational ✅
-	•	Ring buffer operational ✅
-	•	Userspace event reader operational ✅
+## Summary
+
+This version improves the profiler by:
+- Replacing fragile block tracepoints with stable kprobes:
+  - I/O submission: Hooked at `submit_bio_noacct`
+  - I/O completion: Hooked at `bio_endio`
+- Capturing and preserving original I/O size at submission time to avoid size=0 errors at completion.
+- Passing both latency and size information correctly to userspace.
+- Verified working with live fio workloads and accurate size reporting.
+
+This completes the base functional version of the real-time I/O profiler.

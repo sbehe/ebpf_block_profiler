@@ -6,10 +6,15 @@
 #include <bpf/bpf_core_read.h>
 #include "io_event.h"
 
+struct bio_info {
+    __u64 ts;
+    __u32 size;
+};
+
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __type(key, struct bio *);
-    __type(value, __u64);
+    __type(value, struct bio_info);
     __uint(max_entries, 10240);
 } start_ts SEC(".maps");
 
@@ -19,15 +24,20 @@ struct {
 } events SEC(".maps");
 
 // Submission hook
-SEC("tp_btf/block_bio_queue")
-int trace_io_submit(struct bio *bio) {
+SEC("kprobe/submit_bio_noacct")
+int trace_io_submit(struct pt_regs *ctx) {
+    struct bio *bio = (struct bio *)PT_REGS_PARM1(ctx);
     if (!bio)
         return 0;
 
     bpf_printk("submit event\n");
 
-    __u64 ts = bpf_ktime_get_ns();
-    bpf_map_update_elem(&start_ts, &bio, &ts, BPF_ANY);
+    struct bio_info info = {
+        .ts = bpf_ktime_get_ns(),
+        .size = BPF_CORE_READ(bio, bi_iter.bi_size),
+    };
+
+    bpf_map_update_elem(&start_ts, &bio, &info, BPF_ANY);
     return 0;
 }
 
@@ -40,22 +50,28 @@ int trace_io_complete(struct pt_regs *ctx) {
 
     bpf_printk("complete event\n");
 
-    __u64 *tsp = bpf_map_lookup_elem(&start_ts, &bio);
-    if (!tsp)
+    struct bio_info *info = bpf_map_lookup_elem(&start_ts, &bio);
+    if (!info) {
+        bpf_printk("lookup failed for bio=%p\n", bio);
         return 0;
+    }
 
-    __u64 latency = bpf_ktime_get_ns() - *tsp;
+    __u64 latency = bpf_ktime_get_ns() - info->ts;
     bpf_map_delete_elem(&start_ts, &bio);
 
     struct my_io_event *event;
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
-    if (!event)
+
+    if (!event) {
+        bpf_printk("ringbuf reserve failed\n");
         return 0;
+    }
+    bpf_printk("reserving event succeeded\n");
 
     event->pid = bpf_get_current_pid_tgid() >> 32;
     bpf_get_current_comm(&event->comm, sizeof(event->comm));
     event->ts = bpf_ktime_get_ns();
-    event->bytes = BPF_CORE_READ(bio, bi_iter.bi_size);
+    event->bytes = info->size; //BPF_CORE_READ(bio, bi_iter.bi_size);
     event->latency_ns = latency;
 
     bpf_ringbuf_submit(event, 0);
