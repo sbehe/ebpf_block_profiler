@@ -44,7 +44,8 @@ The profiler is intended for optimizing storage performance and understanding I/
 - **Latency Measurement and Aggregation**
   - Each I/O operation's completion latency is calculated.
   - Latencies are bucketed using log2 scale into a histogram for efficient aggregation.
-  - Histogram shows the distribution of I/O completion times, helping to identify performance bottlenecks or tail latencies.
+  - Histogram is displayed live, refreshing every 5 second for real-time visibility.
+  - Upon program exit, the histogram is exported to a CSV file (`histogram.csv`) for offline analysis.
 
 - **Debugging**:  
   - `bpf_printk()` is used internally for kernel-side debugging.
@@ -128,14 +129,13 @@ complete event
 ## Current Limitations
 	•	No per-process data aggregation.
 	•	No filtering by device or PID.
-	•	No CSV export or plotting yet.
 
 ## What is actually working
 	•	attachment of BPF Type Format (BTF) Tracepoints for I/O submission
 	•	attachment of kprobe into bio_endio () for I/O completion
 	•	diplaying I/O submission and I/O completion messages on real time in trace_pipe
-	•	user program run (make run) displays I/O Latency and Size for the I/O requests of all the programs.
-	•	when user program is stopped (ctrl+c), a histogram is displayed with data about the bulk of I/O in a particular latency range.
+	•	a histogram is displayed with data about the bulk of I/O in a particular latency range every 5 seconds and when the user program is stopped
+	•	Histogram data is stored in a CSV export.
 
 ## Future Improvements (Planned)
 
@@ -146,11 +146,11 @@ complete event
 
 ## Summary
 
-This version adds latency histograms to the I/O profiler:
-- Implemented a BPF_MAP_TYPE_ARRAY to maintain latency buckets (log2 scale).
-- Incremented histogram buckets directly from the eBPF `trace_io_complete` program.
-- Added userspace logic to pull and print the histogram cleanly upon program exit (Ctrl+C).
-- Provided a clear view of latency distributions across all I/Os.
-- Verified working under live fio workloads, with accurate, meaningful latency histograms.
+This version adds major visualization and data export improvements:
+- Implemented live refreshing of the latency histogram every 5 second.
+- Suppressed per-I/O live printing to keep terminal output clean.
+- Added support for exporting the final histogram to a CSV file (`histogram.csv`).
+- Format is compatible with Excel, Python, Gnuplot, and other analysis tools.
+- Improved user experience by providing a live performance dashboard.
 
-With this savepoint, the base real-time I/O profiler is complete and production-grade.
+With Savepoint5, the profiler is now a full live-monitoring and data analysis tool.
