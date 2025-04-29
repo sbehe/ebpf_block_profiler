@@ -6,6 +6,20 @@
 #include <bpf/bpf_core_read.h>
 #include "io_event.h"
 
+static __always_inline __u32 bpf_log2l(__u64 v) {
+    __u32 r = 0;
+    while (v >>= 1)
+        r++;
+    return r;
+}
+
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(max_entries, 64);   // Enough to cover latency buckets
+    __type(key, __u32);
+    __type(value, __u64);
+} latency_histogram SEC(".maps");
+
 struct bio_info {
     __u64 ts;
     __u32 size;
@@ -73,6 +87,14 @@ int trace_io_complete(struct pt_regs *ctx) {
     event->ts = bpf_ktime_get_ns();
     event->bytes = info->size; //BPF_CORE_READ(bio, bi_iter.bi_size);
     event->latency_ns = latency;
+
+    __u32 slot = bpf_log2l(latency);
+    if (slot < 64) {
+        __u64 *count = bpf_map_lookup_elem(&latency_histogram, &slot);
+        if (count) {
+            __sync_fetch_and_add(count, 1);
+        }
+    }
 
     bpf_ringbuf_submit(event, 0);
     return 0;

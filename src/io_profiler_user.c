@@ -5,6 +5,7 @@
 #include <bpf/libbpf.h>
 #include "io_profiler_kern.skel.h"
 #include "io_event.h"
+#include <bpf/bpf.h>
 static volatile bool exiting = false;
 
 // Fix struct to match BPF program
@@ -17,6 +18,19 @@ static int handle_event(void *ctx, void *data, size_t data_sz) {
 
 static void sig_handler(int sig) {
     exiting = true;
+}
+
+void print_latency_histogram(int map_fd) {
+    printf("\nLatency Histogram (microseconds):\n");
+    printf("%-20s %-10s\n", "Latency Range", "Count");
+
+    for (__u32 i = 0; i < 64; i++) {
+        __u64 value = 0;
+        if (bpf_map_lookup_elem(map_fd, &i, &value) == 0 && value > 0) {
+            printf("[%6u, %6u) us   %10llu\n",
+                   (1U << i) / 1000, (1U << (i+1)) / 1000, value);
+        }
+    }
 }
 
 int main(int argc, char **argv) {
@@ -50,7 +64,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Failed to attach BPF programs\n");
         goto cleanup;
     }
-    
+
     printf("Started I/O Profiler. Hit Ctrl-C to exit.\n");
 
     while (!exiting) {
@@ -61,6 +75,8 @@ int main(int argc, char **argv) {
             break;
         }
     }
+
+    print_latency_histogram(bpf_map__fd(skel->maps.latency_histogram));
 
 cleanup:
     ring_buffer__free(rb);

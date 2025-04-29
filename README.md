@@ -41,6 +41,11 @@ The profiler is intended for optimizing storage performance and understanding I/
   - Latency (microseconds)
   - I/O size (bytes)
 
+- **Latency Measurement and Aggregation**
+  - Each I/O operation's completion latency is calculated.
+  - Latencies are bucketed using log2 scale into a histogram for efficient aggregation.
+  - Histogram shows the distribution of I/O completion times, helping to identify performance bottlenecks or tail latencies.
+
 - **Debugging**:  
   - `bpf_printk()` is used internally for kernel-side debugging.
   - Kernel messages can be viewed live via `sudo cat /sys/kernel/debug/tracing/trace_pipe`.
@@ -121,7 +126,7 @@ complete event
 ```
 
 ## Current Limitations
-	•	No histograms or per-process aggregation yet.
+	•	No per-process data aggregation.
 	•	No filtering by device or PID.
 	•	No CSV export or plotting yet.
 
@@ -130,10 +135,10 @@ complete event
 	•	attachment of kprobe into bio_endio () for I/O completion
 	•	diplaying I/O submission and I/O completion messages on real time in trace_pipe
 	•	user program run (make run) displays I/O Latency and Size for the I/O requests of all the programs.
+	•	when user program is stopped (ctrl+c), a histogram is displayed with data about the bulk of I/O in a particular latency range.
 
 ## Future Improvements (Planned)
 
-	•	Build latency histograms (log-scale buckets).
 	•	Aggregate average/min/max latency per process.
 	•	Export profiling data to CSV files.
 	•	Build a lightweight CLI dashboard or web dashboard.
@@ -141,14 +146,11 @@ complete event
 
 ## Summary
 
-## Summary
+This version adds latency histograms to the I/O profiler:
+- Implemented a BPF_MAP_TYPE_ARRAY to maintain latency buckets (log2 scale).
+- Incremented histogram buckets directly from the eBPF `trace_io_complete` program.
+- Added userspace logic to pull and print the histogram cleanly upon program exit (Ctrl+C).
+- Provided a clear view of latency distributions across all I/Os.
+- Verified working under live fio workloads, with accurate, meaningful latency histograms.
 
-This version improves the profiler by:
-- Replacing fragile block tracepoints with stable kprobes:
-  - I/O submission: Hooked at `submit_bio_noacct`
-  - I/O completion: Hooked at `bio_endio`
-- Capturing and preserving original I/O size at submission time to avoid size=0 errors at completion.
-- Passing both latency and size information correctly to userspace.
-- Verified working with live fio workloads and accurate size reporting.
-
-This completes the base functional version of the real-time I/O profiler.
+With this savepoint, the base real-time I/O profiler is complete and production-grade.
