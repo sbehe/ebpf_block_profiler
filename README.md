@@ -120,10 +120,15 @@ complete event
 
 ## Current Limitations
 
-	•	Only basic latency and size tracking per I/O.
+	•	Nothing displays on the user program (make run).
 	•	No histograms or per-process aggregation yet.
 	•	No filtering by device or PID.
 	•	No CSV export or plotting yet.
+
+## What is actually working
+	•	attachment of BPF Type Format (BTF) Tracepoints for I/O submission
+	•	attachment of kprobe into bio_endio () for I/O completion
+	•	diplaying I/O submission and I/O completion messages on real time in trace_pipe
 
 ## Future Improvements (Planned)
 
