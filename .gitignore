@@ -1,0 +1,24 @@
+# Ignore build outputs
+*.o
+*.skel.h
+*.out
+*.bin
+io_profiler
+
+# Ignore vmlinux header
+src/vmlinux.h
+
+# Ignore compiled scripts
+scripts/*.o
+scripts/*.out
+
+# Ignore FIO generated test files
+randread*
+
+# Ignore general editor/IDE junk
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+.DS_Store
